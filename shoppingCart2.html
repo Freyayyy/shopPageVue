@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Shopping Cart</title>
+<style>
+*{
+	padding: 0;
+	margin: 0;
+	font-size: 16px;
+	box-sizing: border-box;
+	-moz-box-sizing:border-box; /* Firefox */
+    -webkit-box-sizing:border-box; /* Safari */
+}
+a{
+	text-decoration: none;
+}
+h1 {
+	text-align: center;
+	/*margin: 0 auto;此种方法需为元素设置具体的大小*/
+	font-size: 20px;
+	font-weight: normal;
+    margin-top: 20px;
+}
+.clearfix:after {
+  content: ".";
+  visibility: hidden;
+  display: block;
+  height: .1px;
+  font-size: .1em;
+  line-height: 0;
+  clear: both;
+}
+.shop-cart , .choose-item{
+	width: 600px;
+	margin: 30px auto;
+}
+.choose-all{
+	margin-left: 20px;
+}
+.quantity-selector{
+   margin: 0 auto;
+   width: 100%;
+   line-height: 30px;
+   border: 1px solid #d1d6e4;
+   border-radius: 3px;
+}
+.quantity-selector .reduce, 
+.quantity-selector .add {
+  float: left;
+  width: 33.33%;
+  border-right: 1px solid #d1d6e4;
+  text-align: center;
+  cursor: pointer;
+}
+.quantity-selector .number {
+  float: left;
+  width: 33.33%;
+  height: 30px;
+  border: none;
+  padding-left: 10px;
+  text-align: center;
+}
+.quantity-selector .add {
+  border-left: 1px solid #d1d6e4;
+  border-right: none;
+}
+.quantity-selector .disable {
+  color: #d2d2d2;
+  cursor: default;
+}
+
+label {
+  cursor: pointer;
+}
+.shop-cart th {
+  height: 40px;
+  background: #ffd2d2;
+  -webkit-text-stroke: 1px #e6caff;
+  font-size: 18px;
+}
+.shop-cart td {
+  height: 60px;
+  text-align: center;
+}
+.td-product {
+  margin-top: 20px;
+  display: flex;
+}
+.td-product span {
+   font-size: 12px;
+   margin-left: 20px;
+   text-align: left;
+}
+.sum {
+	margin-top: 20px;
+	text-align: right;
+}
+.shop-footer {
+	margin: 20px auto;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	width: 600px;
+}
+</style>	
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+</head>
+<body>
+<div id="app">
+<h1>购物车<span v-on:click="calNumGoods">(共有(<span>{{numGoods}}</span>)件商品)</span></h1>
+
+<div class="shop-cart"  v-for="(item, index) in goodsObj">
+	<p>
+		<span>{{item.name}}</span>
+		<label class="choose-all">
+			<input type="checkbox" name="all" v-on:click="chooseShopGoods(index)" v-model="item.checked"><span>全选</span>
+		</label>
+	</p>
+	<table class="choose-item">
+		<colgroup>
+			<col width="10%">
+			<col width="30%">
+			<col width="20%">
+			<col width="15%">
+			<col width="15%">
+			<col width="10%">
+		</colgroup>
+		<thead class="thead">
+			<tr>
+				<th>选择</th>
+				<th>商品</th>
+				<th>数量</th>
+				<th>单价</th>
+				<th>运费</th>
+				<th>操作</th>
+
+			</tr>
+		</thead>
+		<tbody>
+			<tr v-for="(item1,index1) in item.list">
+				<td class="td-choose">
+					<input type="checkbox" name="all" v-model="item1.checked" v-on:click="choose(index, index1)">
+				</td>
+				<td class="td-product">
+					<img :src="item1.img" width="40%" height="60px">
+					<span>{{item1.des}}</span>
+				</td>
+				<td class="td-num">
+					<div class="quantity-selector clearfix">
+						<span class="reduce" v-on:click="numChange(index,index1,-1)" :class="{'disabled':item1.num==1}">-</span>
+						<input class="number" type="number" :value="item1.num" v-bind:data-realStock="item1.realStock" v-on:keyUp="numEntry(index, index1)" v-on:keyDown="numEntry(index, index1)" v-model="item1.num"/>
+						<span class="add" v-on:click="numChange(index,index1,1)" :class="{'disabled':item1.num==item1.realStock}">+</span>
+					</div>
+				</td>
+				<td class="td-price">￥{{item1.price.toFixed(2)}}</td>
+				<td class="td-trans-price">￥{{item1.fare.toFixed(2)}}</td>
+				<td class="td-do">
+					<a href="javascript:;" v-on:click="delGoods(index, index1)">删除</a>
+				</td>
+			</tr>
+			
+		</tbody>
+	</table>
+	<div class="sum">
+		<p>店铺总运费：￥<span v-html="calEveryFare(index)"></span></p>
+		<p>商品总金额：￥<span v-html="calEveryStore(index)"></span></p>
+	</div>
+</div>
+	<div class="shop-footer">
+		<label>
+			<input type="checkbox" v-on:click="chooseAllGoods($event)" v-model="allChecked">
+			<span>全选</span>
+		</label>
+		<div class="all-sum">
+			<p>商品总运费：￥<span>{{totalFare.toFixed(2)}}</span></p>
+			<p>商品总金额：￥<span>{{totalPrice.toFixed(2)}}</span></p>
+		</div>
+	</div>
+
+</div>
+
+
+<script>
+var goodsObj = [
+  {
+  	name:'一米阳光',
+  	checked:false,
+  	list:[{
+     img:'img/yiskirt.jpg',
+     des:'一米阳光五分袖蕾丝拼接收腰连衣裙802226',
+     num:1,
+     realStock:100,
+     price:160.00,
+     fare:10.00,
+     checked:false,
+  	},
+  	{
+     img:'img/yiskirt2.jpg',
+     des:'一米阳光长款蝴蝶结蕾丝透视连衣裙女夏复古气质喇叭袖荷叶领长裙',
+     num:2,
+     realStock:100,
+     price:300.00,
+     fare:10.00,
+     checked:false,
+  	}]
+  },
+  {
+  	name:'梅子熟了',
+  	checked:false,
+  	list:[{
+     img:'img/meizi.jpg',
+     des:'梅子熟了文艺荷叶边雪纺吊带 复古chic小心机背心女2018夏季新款',
+     num:1,
+     realStock:100,
+     price:50.00,
+     fare:5.02,
+     checked:false,
+  	},
+  	{
+     img:'img/meizi2.jpg',
+     des:'梅子熟了文艺小心机衬衫 复古港味设计感长袖上衣女2018秋装新款',
+     num:1,
+     realStock:100,
+     price:100.00,
+     fare:0.00,
+     checked:false,
+  	}]
+  }
+ ];
+new Vue({
+	el:'#app',
+	data:{
+	goodsObj:goodsObj,
+	totalPrice:0,
+	totalFare:0,
+	allChecked:false,
+	numGoods:0,
+    },
+
+	methods:{
+		//计算购物车里的商品总数
+		calNumGoods(){
+		   this.numGoods = 0;
+		   for( var i = 0, len = this.goodsObj.length; i < len; i++){
+		   	var len1 = this.goodsObj[i]['list'].length;
+		   	this.numGoods += len1;
+		   }
+		},
+		//选择全部的商品
+		chooseAllGoods(){
+		  var flag = true;
+	      if ( this.allChecked ) {
+	        flag = false;
+	      }
+	      for ( var i = 0, len = this.goodsObj.length; i < len; i++ ) {
+	        this.goodsObj[i]['checked'] = flag;
+	        var list = this.goodsObj[i]['list'];
+	        for ( var k = 0, len1 = list.length; k < len1; k++ ) {
+	          list[k]['checked'] = flag;
+	        }
+	      }
+	      this.allChecked = !this.allChecked;
+	      this.calTotalPrice();
+	      this.calTotalFare();
+	    },
+	    //每个店铺商品全选
+	    chooseShopGoods(index){
+	      var list = this.goodsObj[index]['list'],
+          len = list.length;
+	      if ( this.goodsObj[index]['checked'] ){
+	         for (var i = 0; i < len; i++ ) {
+	          list[i]['checked'] = false;
+	         }
+	      } else {
+	        for (var i = 0; i < len; i++ ) {
+	          list[i]['checked'] = true;
+	        }
+	      }
+	      this.goodsObj[index]['checked'] = !this.goodsObj[index]['checked'];
+
+	      // 判断是否选择所有商品的全选
+	      this.isChooseAll();
+
+	      this.cal(index);
+
+		},
+		 //单个商品的选择
+		 choose(index, index1){
+		 	var list = this.goodsObj[index]['list'];
+            var len = list.length;
+            if ( list[index1]['checked'] ) {
+              this.goodsObj[index]['checked'] = false;
+              this.allChecked = false;
+              list[index1]['checked'] = !list[index1]['checked'];
+              } else {
+               list[index1]['checked'] = !list[index1]['checked'];
+
+		        // 判断是否选择当前店铺的全选
+		        var flag = true;
+		        for (var i = 0; i < len; i++ ) {
+		          if ( list[i]['checked'] == false ) {
+		            flag = false;
+		            break;
+		          }
+		        }
+		        flag == true ? this.goodsObj[index]['checked'] = true : this.goodsObj[index]['checked'] = false;
+		      }
+
+		      // 判断是否选择所有商品的全选
+		      this.isChooseAll();
+
+		      this.cal(index);
+		    },
+	        //判断是否选择所有商品的全选
+	        isChooseAll(){
+	          var flag1 = true;
+		      for ( var i = 0, len = this.goodsObj.length; i < len; i++ ) {
+		        if ( this.goodsObj[i]['checked'] == false ){
+		          flag1 = false;
+		          break;
+		        }
+		      }
+		      flag1 == true ? this.allChecked = true : this.allChecked = false;
+	        },
+	        //控制商品的数量
+	        numChange(index,index1,numChange){
+              var goods = this.goodsObj[index]['list'][index1];
+
+		      if ( numChange == 1 ) {
+		        goods.num++;
+		      } else if ( numChange == -1 ) {
+		        goods.num--;
+		      }
+
+		      if ( goods.num <= 1 ) {
+		        goods.num = 1;
+		      } 
+
+		      if ( goods.num >= goods.realStock ) {
+		        goods.num = goods.realStock;
+		      }
+
+		      this.cal(index);
+	        },
+	        //用户填写数量的容错处理
+	        numEntry(index,index1){
+	        	var goods = this.goodsObj[index]['list'][index1];
+	        	if ( goods.num <= 1 ) {
+		          goods.num = 1;
+		        } 
+
+		        if ( goods.num >= goods.realStock ) {
+		           goods.num = goods.realStock;
+		        }
+
+		      this.cal(index);
+	        },
+	        //计算每个店铺商品总额
+	        calEveryStore(index){
+	        	var everyStoreMoney = 0,
+	            list = this.goodsObj[index]['list'];
+	            list.forEach(function(item, index, arr) {
+	              if ( list[index]['checked'] ) { 
+	                everyStoreMoney += parseFloat(item.price) * parseFloat(item.num);
+                   }
+                 });
+	            return everyStoreMoney.toFixed(2);
+	            // return everyStoreMoney;
+	        },
+            //计算每个店铺运费总额
+	        calEveryFare(index){
+	        	var everyStoreFare = 0,
+	            list = this.goodsObj[index]['list'];
+	            list.forEach(function(item, index, arr) {
+	              if ( list[index]['checked'] ) { 
+	                 everyStoreFare += parseFloat(item.fare) * parseFloat(item.num);
+                   }
+
+                });
+                 return everyStoreFare.toFixed(2);
+                 // return everyStoreFare;
+	        },
+	        //计算全部商品总额
+	        calTotalPrice(){
+              var oThis = this;
+		      /*this.totalPrice = 0;*/
+		      for ( var i = 0, len = this.goodsObj.length; i < len; i++ ) {
+		        var list = this.goodsObj[i]['list'];
+		        list.forEach(function(item, index, arr) {
+		          if ( list[index]['checked'] ) {
+		            oThis.totalPrice+= parseFloat(item.price) * parseFloat(item.num);
+		          }
+		        });
+		      }
+	        },
+	        //计算全部商品总运费
+	        calTotalFare(){
+              var oThis = this;
+		      this.totalFare = 0;
+		      for ( var i = 0, len = this.goodsObj.length; i < len; i++ ) {
+		        var list = this.goodsObj[i]['list'];
+		        list.forEach(function(item, index, arr) {
+		          if ( list[index]['checked'] ) {
+		            oThis.totalFare+= parseFloat(item.fare) * parseFloat(item.num);
+		          }
+		        });
+		      }
+	        },
+	        // 删除操作
+		    delGoods(index, index1) {
+		      console.log(index);
+		      console.log(index1);
+		      this.goodsObj[index]['list'].splice(index1, 1);
+		      this.cal(index);
+		    },
+	        // 计算方法集合
+		    cal(index) {
+		      this.calEveryStore(index);
+		      this.calEveryFare(index);
+		      this.calTotalPrice();
+		      this.calTotalFare();
+		    }
+	}
+
+})
+</script>
+</body>
+</html>
